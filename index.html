@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Game Intro</title>
+  <title>Game</title>
   <style>
     *, *::before, *::after {
       margin: 0;
@@ -18,9 +18,7 @@
       background: #000;
     }
 
-    body {
-      cursor: pointer;
-    }
+    body { cursor: pointer; }
 
     /* ── Scene container ────────────────────────────────── */
     .scene {
@@ -48,74 +46,399 @@
     /* ── Floating dialogue bubble ───────────────────────── */
     .scene-dialog {
       position: absolute;
-      /* Size: dialogue is 1000×1000px — scale to ~32% viewport width */
       width: 32vw;
       max-width: 360px;
       height: auto;
-      /* Position: left of character's head (upper-left quadrant) */
       left: 3vw;
       top: 6vh;
       animation: float 3.5s ease-in-out infinite;
-      /* Prevent drag ghost */
       user-select: none;
       pointer-events: none;
     }
 
-    /* ── Floating keyframes ─────────────────────────────── */
     @keyframes float {
-      0%,
-      100% { transform: translateY(0px);  }
-      50%  { transform: translateY(-8px); }
+      0%, 100% { transform: translateY(0px);  }
+      50%       { transform: translateY(-8px); }
+    }
+
+
+    /* ═══════════════════════════════════════════════════════
+       STAGE 2 – Alignment Challenge
+    ═══════════════════════════════════════════════════════ */
+
+    #scene3 {
+      cursor: default;
+      background: #111;
+    }
+
+    /* ── Sheet wrapper ──────────────────────────────────── */
+    /*    Starts above the viewport; JS adds .s3-landed      */
+    #s3-sheet-wrap {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 45vw;
+      /* off-canvas above: translate center-X, then lift 120vh */
+      transform: translate(-50%, calc(-50% - 120vh));
+      transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      z-index: 2;
+    }
+
+    #s3-sheet-wrap.s3-landed {
+      transform: translate(-50%, -50%);
+    }
+
+    #s3-sheet {
+      width: 100%;
+      height: auto;
+      display: block;
+      user-select: none;
+    }
+
+    /* ── Grid overlay ───────────────────────────────────── */
+    #s3-grid {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      pointer-events: none;
+      /* fade-in handled by class; fade-out driven by inline style */
+      transition: opacity 0.5s ease;
+      user-select: none;
+    }
+
+    #s3-grid.s3-grid-visible { opacity: 1; }
+
+    /* ── Title reference marker (invisible) ─────────────── */
+    /*    Left edge marks the left edge of the title text    */
+    /*    in sheet.png. Tune TITLE_LEFT_PCT in JS below.     */
+    #s3-title-ref {
+      position: absolute;
+      width: 1px;
+      height: 30%;
+      top: 10%;
+      pointer-events: none;
+      /* uncomment for debugging: background: red; opacity: 0.6; */
+    }
+
+    /* ── Draggable boxes ────────────────────────────────── */
+    .s3-box {
+      position: absolute;
+      cursor: grab;
+      user-select: none;
+      z-index: 5;
+    }
+
+    .s3-box:active { cursor: grabbing; }
+
+    /* Initial positions – left side of screen */
+    #s3-box1 { width: 13vw; left: 5vw;  top: 18vh; }
+    #s3-box2 { width: 10vw; left: 7vw;  top: 64vh; }
+
+    /* ── OK button ──────────────────────────────────────── */
+    #s3-ok-btn {
+      position: absolute;
+      width: 72px;
+      height: 72px;
+      right: 3vw;
+      bottom: 3vh;
+      cursor: pointer;
+      z-index: 10;
+      transition: transform 0.2s ease, filter 0.2s ease;
+      user-select: none;
+    }
+
+    #s3-ok-btn:hover {
+      transform: scale(1.05);
+      filter: brightness(1.25);
+    }
+
+    /* ── Result character ───────────────────────────────── */
+    /*    Starts below viewport; .s3-result-up slides into view */
+    #s3-result {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      right: 3vw;
+      bottom: 3vh;
+      transform: translateY(180px);  /* pushed below viewport edge */
+      opacity: 0;
+      transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+      pointer-events: none;
+      user-select: none;
+      z-index: 10;
+    }
+
+    #s3-result.s3-result-up {
+      transform: translateY(0);
+      opacity: 1;
     }
   </style>
 </head>
 <body>
 
-  <!-- Scene 1 ─────────────────────────────────────────── -->
+  <!-- ── Scene 1: Boss intro ──────────────────────────── -->
   <div id="scene1" class="scene active">
-    <div
-      class="scene-bg"
-      style="background-image: url('pngassets/Boss1.png');"
-    ></div>
-    <img
-      class="scene-dialog"
-      src="pngassets/Dialog 1.png"
-      alt="Boss dialogue 1"
-      draggable="false"
-    >
+    <div class="scene-bg"
+         style="background-image: url('pngassets/Boss1.png');"></div>
+    <img class="scene-dialog"
+         src="pngassets/Dialog 1.png"
+         alt="Boss dialogue 1"
+         draggable="false">
   </div>
 
-  <!-- Scene 2 ─────────────────────────────────────────── -->
+  <!-- ── Scene 2: Boss reply ──────────────────────────── -->
   <div id="scene2" class="scene">
-    <div
-      class="scene-bg"
-      style="background-image: url('pngassets/Boss2.png');"
-    ></div>
-    <img
-      class="scene-dialog"
-      src="pngassets/Dialog 2.png"
-      alt="Boss dialogue 2"
-      draggable="false"
-    >
+    <div class="scene-bg"
+         style="background-image: url('pngassets/Boss2.png');"></div>
+    <img class="scene-dialog"
+         src="pngassets/Dialog 2.png"
+         alt="Boss dialogue 2"
+         draggable="false">
   </div>
+
+  <!-- ── Scene 3: Alignment Challenge ─────────────────── -->
+  <div id="scene3" class="scene">
+
+    <!-- Sheet (slides down from top to center) -->
+    <div id="s3-sheet-wrap">
+      <img id="s3-sheet"
+           src="pngassets/sheet.png"
+           alt="Sheet"
+           draggable="false">
+      <!-- Grid overlay: fades in on land, fades out after 3 s -->
+      <img id="s3-grid"
+           src="pngassets/grid.png"
+           alt="Grid"
+           draggable="false">
+      <!-- Invisible marker: left edge of title text within sheet.png -->
+      <div id="s3-title-ref" aria-hidden="true"></div>
+    </div>
+
+    <!-- Draggable boxes (start on left side) -->
+    <img id="s3-box1"
+         class="s3-box"
+         src="pngassets/box 1.png"
+         alt="Box 1"
+         draggable="false">
+    <img id="s3-box2"
+         class="s3-box"
+         src="pngassets/box 2.png"
+         alt="Box 2"
+         draggable="false">
+
+    <!-- OK button – bottom-right -->
+    <img id="s3-ok-btn"
+         src="pngassets/ok.png"
+         alt="OK"
+         draggable="false">
+
+    <!-- Result character – slides up from bottom-right -->
+    <img id="s3-result"
+         src=""
+         alt="Result"
+         draggable="false">
+
+  </div><!-- /scene3 -->
+
 
   <script>
+    /* ═══════════════════════════════════════════════════
+       Scene manager (Scenes 1 → 2 → 3)
+    ═══════════════════════════════════════════════════ */
     (function () {
       const scenes = [
         document.getElementById('scene1'),
         document.getElementById('scene2'),
+        document.getElementById('scene3'),
       ];
-      let current = 0;
+      let current      = 0;
+      let stage2Inited = false;
 
       document.body.addEventListener('click', function () {
         const next = current + 1;
-        if (next >= scenes.length) return; // last scene — no more transitions
+        if (next >= scenes.length) return; // no scene beyond last
 
         scenes[current].classList.remove('active');
         scenes[next].classList.add('active');
         current = next;
+
+        // Boot Stage 2 exactly once when scene3 activates
+        if (next === 2 && !stage2Inited) {
+          stage2Inited = true;
+          initStage2();
+        }
       });
-    })();
+    }());
+
+
+    /* ═══════════════════════════════════════════════════
+       Stage 2 – Alignment Challenge
+    ═══════════════════════════════════════════════════ */
+    function initStage2() {
+
+      /* ── Element refs ─────────────────────────────── */
+      const sheetWrap = document.getElementById('s3-sheet-wrap');
+      const grid      = document.getElementById('s3-grid');
+      const titleRef  = document.getElementById('s3-title-ref');
+      const box1      = document.getElementById('s3-box1');
+      const box2      = document.getElementById('s3-box2');
+      const okBtn     = document.getElementById('s3-ok-btn');
+      const resultImg = document.getElementById('s3-result');
+
+      /* ── Config ───────────────────────────────────── */
+      const TOLERANCE = 5; // px
+
+      // Percentage of sheet width where the title's LEFT edge sits.
+      // Adjust this value to match the actual title position in sheet.png.
+      const TITLE_LEFT_PCT = 11; // %
+      titleRef.style.left  = TITLE_LEFT_PCT + '%';
+
+      /* ── Preload result images ────────────────────── */
+      ['pngassets/ok.png', 'pngassets/no.png'].forEach(function (src) {
+        var img  = new Image();
+        img.src  = src;
+      });
+
+      /* ────────────────────────────────────────────────
+         1. Sheet entrance animation
+      ─────────────────────────────────────────────── */
+      function playSheetEntrance() {
+        // Double rAF: ensures the initial off-screen transform is
+        // committed before the transition to center fires.
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            sheetWrap.classList.add('s3-landed');
+            sheetWrap.addEventListener('transitionend', onSheetLanded,
+                                       { once: true });
+          });
+        });
+      }
+
+      function onSheetLanded() {
+        revealGrid();
+      }
+
+      /* ────────────────────────────────────────────────
+         4. Grid reveal
+      ─────────────────────────────────────────────── */
+      function revealGrid() {
+        // Fade in
+        grid.classList.add('s3-grid-visible');
+
+        // After 3 s, fade out (inline style overrides the class value)
+        setTimeout(function () {
+          grid.style.opacity = '0';
+        }, 3000);
+      }
+
+      /* ────────────────────────────────────────────────
+         2. Draggable boxes
+      ─────────────────────────────────────────────── */
+      function makeDraggable(el) {
+        function startDrag(clientX, clientY) {
+          // Capture current pixel position relative to the scene
+          var rect       = el.getBoundingClientRect();
+          var parentRect = el.parentElement.getBoundingClientRect();
+          var startLeft  = rect.left - parentRect.left;
+          var startTop   = rect.top  - parentRect.top;
+
+          // Pin to px so viewport-unit CSS doesn't interfere during drag
+          el.style.left = startLeft + 'px';
+          el.style.top  = startTop  + 'px';
+
+          function move(cx, cy) {
+            el.style.left = (startLeft + cx - clientX) + 'px';
+            el.style.top  = (startTop  + cy - clientY) + 'px';
+          }
+
+          /* Mouse */
+          function onMouseMove(e) { move(e.clientX, e.clientY); }
+          function onMouseUp()    {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup',   onMouseUp);
+          }
+
+          /* Touch */
+          function onTouchMove(e) {
+            e.preventDefault();
+            move(e.touches[0].clientX, e.touches[0].clientY);
+          }
+          function onTouchEnd() {
+            document.removeEventListener('touchmove', onTouchMove);
+            document.removeEventListener('touchend',  onTouchEnd);
+          }
+
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup',   onMouseUp);
+          document.addEventListener('touchmove', onTouchMove, { passive: false });
+          document.addEventListener('touchend',  onTouchEnd);
+        }
+
+        el.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          e.stopPropagation(); // keep body click from advancing scenes
+          startDrag(e.clientX, e.clientY);
+        });
+
+        el.addEventListener('touchstart', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          startDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+      }
+
+      makeDraggable(box1);
+      makeDraggable(box2);
+
+      /* ────────────────────────────────────────────────
+         5. Alignment evaluation
+      ─────────────────────────────────────────────── */
+      function evaluateAlignment() {
+        var titleRect = titleRef.getBoundingClientRect();
+        var b1Rect    = box1.getBoundingClientRect();
+        var b2Rect    = box2.getBoundingClientRect();
+
+        // Condition A: left edge of box1 ≈ left edge of title
+        var condA = Math.abs(b1Rect.left - titleRect.left) <= TOLERANCE;
+
+        // Condition B: top edge of box2 ≈ top edge of box1
+        var condB = Math.abs(b2Rect.top  - b1Rect.top)    <= TOLERANCE;
+
+        return condA && condB;
+      }
+
+      /* ────────────────────────────────────────────────
+         6 & 7. OK button → evaluate → show result
+      ─────────────────────────────────────────────── */
+      function onOkClick(e) {
+        e.stopPropagation(); // prevent bubble to body scene-advance handler
+
+        // Hide OK button
+        okBtn.style.display = 'none';
+
+        // Slide thinking character up from bottom-right
+        resultImg.src = 'pngassets/thinking.png';
+        // Double rAF: commit initial off-screen state, then trigger slide
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            resultImg.classList.add('s3-result-up');
+          });
+        });
+
+        // After 4 s: replace with win or lose character (same position)
+        setTimeout(function () {
+          var win = evaluateAlignment();
+          resultImg.src = win ? 'pngassets/ok.png' : 'pngassets/no.png';
+        }, 4000);
+      }
+
+      okBtn.addEventListener('click', onOkClick);
+
+      /* ── Kick off ─────────────────────────────────── */
+      playSheetEntrance();
+    }
   </script>
 
 </body>
