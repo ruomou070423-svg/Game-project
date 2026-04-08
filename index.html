@@ -125,6 +125,26 @@
       position: absolute; /* offset by JS to crop transparent padding */
       user-select: none;
     }
+
+    /* ── Result character (thinking → ok) ──────────────── */
+    #s3-result {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      right: 3vw;
+      bottom: 3vh;
+      transform: translateY(180px); /* starts below viewport */
+      opacity: 0;
+      transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+      pointer-events: none;
+      user-select: none;
+      z-index: 20;
+    }
+
+    #s3-result.s3-result-up {
+      transform: translateY(0);
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -160,6 +180,9 @@
     <div id="s3-zone-b2" class="s3-zone"></div>
     <div id="s3-zone-b3" class="s3-zone"></div>
     <div id="s3-zone-b4" class="s3-zone"></div>
+
+    <!-- Result character: slides up from bottom-right after all blocks placed -->
+    <img id="s3-result" src="" alt="Result" draggable="false">
 
     <!-- Draggable blocks (wrapper clips PNG to content rect) -->
     <div id="s3-wrap-b1" class="s3-wrap">
@@ -419,9 +442,31 @@
           wrap.classList.add('s3-snapped');
 
           // Fade zone outline
-          var zone = document.getElementById('s3-zone-' + b.id);
-          zone.classList.add('s3-filled');
+          document.getElementById('s3-zone-' + b.id).classList.add('s3-filled');
+
+          // Check if this was the last block
+          if (BLOCKS.every(function (x) { return x.snapped; })) {
+            showResult();
+          }
         }
+      }
+
+      /* ── Result sequence ─────────────────────────────── */
+      function showResult() {
+        var el = document.getElementById('s3-result');
+        el.src = 'pngassets/thinking.png';
+
+        // Double rAF: paint initial off-screen state, then slide up
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            el.classList.add('s3-result-up');
+          });
+        });
+
+        // After 4 s swap to ok.png (stays in same position)
+        setTimeout(function () {
+          el.src = 'pngassets/ok.png';
+        }, 4000);
       }
     }
   </script>
