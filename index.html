@@ -254,7 +254,7 @@
     function initStage2() {
 
       /* ── Canvas / content constants ─────────────────── */
-      var CW = 1540, CH = 1080;
+      var CW = 1540;
 
       // Paper content bounds (fraction of canvas)
       var PAPER = { L: 0.293, R: 0.687, T: 0.081, B: 0.900 };
@@ -263,8 +263,7 @@
       var BLOCKS = [
         {
           id : 'b1',
-          cL : 0.408, cR : 0.586, cT : 0.331, cB : 0.727, // content in canvas
-          // snap zone as fraction of paper content area (matches reference layout)
+          cL : 0.408, cR : 0.586, cT : 0.331, cB : 0.727,
           zL : 0.02,  zR : 0.48,  zT : 0.49,  zB : 0.99,  // lower-left
           side : 'left',   scatterRow : 'bottom'
         },
@@ -290,11 +289,25 @@
 
       var SNAP_RADIUS = 55; // px
 
-      /* ── Layout calculation ──────────────────────────── */
       var paper = document.getElementById('s3-paper');
-      var pr    = paper.getBoundingClientRect();
-      // Scale: px per canvas unit (uniform since aspect ratio is locked)
-      var scale = pr.width / CW;
+
+      // Preload result images so the 4-second swap is instant
+      ['pngassets/thinking.png', 'pngassets/ok.png'].forEach(function (s) {
+        new Image().src = s;
+      });
+
+      /* ── Wait for paper image to have non-zero dimensions ──
+         height: auto means getBoundingClientRect().height === 0
+         until the image has fully loaded and the browser has
+         performed layout. Poll with rAF until it resolves.     */
+      function waitForLayout(cb) {
+        var pr = paper.getBoundingClientRect();
+        if (pr.width > 0 && pr.height > 0) { cb(pr); return; }
+        requestAnimationFrame(function () { waitForLayout(cb); });
+      }
+
+      function startSetup() {
+        waitForLayout(function (pr) {
 
       // Paper content rect in screen coords
       var pw = {
@@ -467,6 +480,16 @@
         setTimeout(function () {
           el.src = 'pngassets/ok.png';
         }, 4000);
+      }
+
+        }); // end waitForLayout callback
+      }   // end startSetup
+
+      // Kick off setup only after paper image is loaded
+      if (paper.complete && paper.naturalWidth > 0) {
+        startSetup();
+      } else {
+        paper.addEventListener('load', startSetup, { once: true });
       }
     }
   </script>
