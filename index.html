@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    body { cursor: pointer; }
+
+    /* ── Scene container ────────────────────────────────── */
+    .scene {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+
+    .scene.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Full-screen background ─────────────────────────── */
+    .scene-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    /* ── Floating dialogue bubble ───────────────────────── */
+    .scene-dialog {
+      position: absolute;
+      width: 32vw;
+      max-width: 360px;
+      height: auto;
+      left: 3vw;
+      top: 6vh;
+      animation: float 3.5s ease-in-out infinite;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px);  }
+      50%       { transform: translateY(-8px); }
+    }
+
+
+    /* ═══════════════════════════════════════════════════════
+       STAGE 2 – Block Assembly Puzzle
+    ═══════════════════════════════════════════════════════ */
+
+    #scene3 {
+      cursor: default;
+      background: #bbb;
+    }
+
+    /* 纸.png – portrait paper, centered anchor */
+    #s3-paper {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 55vw;          /* canvas display width; height is auto */
+      height: auto;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* Snap-zone outlines on the paper */
+    .s3-zone {
+      position: absolute;
+      border: 2px dashed rgba(90, 90, 90, 0.5);
+      border-radius: 3px;
+      z-index: 3;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    .s3-zone.s3-filled { opacity: 0; }
+
+    /*
+     * Block wrapper – overflow:hidden crops the PNG to its content rect.
+     * The img inside is positioned to show only the relevant content area.
+     */
+    .s3-wrap {
+      position: absolute;
+      overflow: hidden;
+      cursor: grab;
+      z-index: 5;
+      /* snap transition toggled by JS */
+    }
+
+    .s3-wrap:active { cursor: grabbing; }
+
+    .s3-wrap.s3-near {
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.75));
+    }
+
+    .s3-wrap.s3-snapped {
+      cursor: default;
+      pointer-events: none;
+      z-index: 4;
+      filter: none;
+    }
+
+    .s3-wrap img {
+      position: absolute; /* offset by JS to crop transparent padding */
+      user-select: none;
+    }
+
+    /* ── Result character (thinking → ok) ──────────────── */
+    #s3-result {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      right: 3vw;
+      bottom: 3vh;
+      transform: translateY(180px); /* starts below viewport */
+      opacity: 0;
+      transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+      pointer-events: none;
+      user-select: none;
+      z-index: 20;
+    }
+
+    #s3-result.s3-result-up {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Scene 1: Boss intro ──────────────────────────── -->
+  <div id="scene1" class="scene active">
+    <div class="scene-bg"
+         style="background-image: url('pngassets/Boss1.png');"></div>
+    <img class="scene-dialog"
+         src="pngassets/Dialog 1.png"
+         alt="Boss dialogue 1"
+         draggable="false">
+  </div>
+
+  <!-- ── Scene 2: Boss reply ──────────────────────────── -->
+  <div id="scene2" class="scene">
+    <div class="scene-bg"
+         style="background-image: url('pngassets/Boss2.png');"></div>
+    <img class="scene-dialog"
+         src="pngassets/Dialog 2.png"
+         alt="Boss dialogue 2"
+         draggable="false">
+  </div>
+
+  <!-- ── Scene 3: Block Assembly Puzzle ───────────────── -->
+  <div id="scene3" class="scene">
+
+    <!-- 纸.png – paper background anchor (non-interactive) -->
+    <img id="s3-paper" src="pngassets/纸.png" alt="Paper" draggable="false">
+
+    <!-- Snap-zone outlines (positioned + sized entirely by JS) -->
+    <div id="s3-zone-b1" class="s3-zone"></div>
+    <div id="s3-zone-b2" class="s3-zone"></div>
+    <div id="s3-zone-b3" class="s3-zone"></div>
+    <div id="s3-zone-b4" class="s3-zone"></div>
+
+    <!-- Result character: slides up from bottom-right after all blocks placed -->
+    <img id="s3-result" src="" alt="Result" draggable="false">
+
+    <!-- Draggable blocks (wrapper clips PNG to content rect) -->
+    <div id="s3-wrap-b1" class="s3-wrap">
+      <img id="s3-img-b1" src="pngassets/块1.png" alt="Block 1" draggable="false">
+    </div>
+    <div id="s3-wrap-b2" class="s3-wrap">
+      <img id="s3-img-b2" src="pngassets/块2.png" alt="Block 2" draggable="false">
+    </div>
+    <div id="s3-wrap-b3" class="s3-wrap">
+      <img id="s3-img-b3" src="pngassets/块3.png" alt="Block 3" draggable="false">
+    </div>
+    <div id="s3-wrap-b4" class="s3-wrap">
+      <img id="s3-img-b4" src="pngassets/块4.png" alt="Block 4" draggable="false">
+    </div>
+
+  </div>
+
+
+  <script>
+    /* ═══════════════════════════════════════════════════
+       Scene manager  (Scene 1 → 2 → 3)
+    ═══════════════════════════════════════════════════ */
+    (function () {
+      var scenes = [
+        document.getElementById('scene1'),
+        document.getElementById('scene2'),
+        document.getElementById('scene3'),
+      ];
+      var current      = 0;
+      var stage2Inited = false;
+
+      document.body.addEventListener('click', function () {
+        var next = current + 1;
+        if (next >= scenes.length) return;
+
+        scenes[current].classList.remove('active');
+        scenes[next].classList.add('active');
+        current = next;
+
+        if (next === 2 && !stage2Inited) {
+          stage2Inited = true;
+          setTimeout(initStage2, 450); // after scene fade-in
+        }
+      });
+    }());
+
+
+    /* ═══════════════════════════════════════════════════
+       Stage 2 – Block Assembly Puzzle
+    ═══════════════════════════════════════════════════
+
+       Asset canvas size: 1540 × 1080 (all five PNGs share this).
+
+       Content bounding boxes (fraction of 1540 × 1080),
+       measured from actual pixel data:
+         纸.png  paper:  L=0.293 R=0.687 T=0.081 B=0.900
+         块1.png block1: L=0.408 R=0.586 T=0.331 B=0.727  (tall dark)
+         块2.png block2: L=0.309 R=0.673 T=0.350 B=0.612  (wide dark)
+         块3.png block3: L=0.419 R=0.579 T=0.400 B=0.557  (small lighter)
+         块4.png block4: L=0.445 R=0.560 T=0.424 B=0.512  (title text)
+
+       Snap zones on the paper (as fraction of paper content area),
+       derived from the reference layout image:
+         block1 → lower-left  (tall dark)
+         block2 → middle-wide  (wide horizontal)
+         block3 → lower-right  (small lighter)
+         block4 → title area   (upper-left)
+    ═══════════════════════════════════════════════════ */
+    function initStage2() {
+
+      /* ── Canvas / content constants ─────────────────── */
+      var CW = 1540;
+
+      // Paper content bounds (fraction of canvas)
+      var PAPER = { L: 0.293, R: 0.687, T: 0.081, B: 0.900 };
+
+      // Block definitions
+      var BLOCKS = [
+        {
+          id : 'b1',
+          cL : 0.408, cR : 0.586, cT : 0.331, cB : 0.727,
+          zL : 0.02,  zR : 0.48,  zT : 0.49,  zB : 0.99,  // lower-left
+          side : 'left',   scatterRow : 'bottom'
+        },
+        {
+          id : 'b2',
+          cL : 0.309, cR : 0.673, cT : 0.350, cB : 0.612,
+          zL : 0.02,  zR : 0.97,  zT : 0.19,  zB : 0.48,  // wide middle
+          side : 'right',  scatterRow : 'top'
+        },
+        {
+          id : 'b3',
+          cL : 0.419, cR : 0.579, cT : 0.400, cB : 0.557,
+          zL : 0.54,  zR : 0.97,  zT : 0.49,  zB : 0.70,  // lower-right
+          side : 'right',  scatterRow : 'bottom'
+        },
+        {
+          id : 'b4',
+          cL : 0.445, cR : 0.560, cT : 0.424, cB : 0.512,
+          zL : 0.02,  zR : 0.45,  zT : 0.02,  zB : 0.18,  // title
+          side : 'left',   scatterRow : 'top'
+        }
+      ];
+
+      var SNAP_RADIUS = 55; // px
+
+      var paper = document.getElementById('s3-paper');
+
+      // Preload result images so the 4-second swap is instant
+      ['pngassets/thinking.png', 'pngassets/ok.png'].forEach(function (s) {
+        new Image().src = s;
+      });
+
+      /* ── Wait for paper image to have non-zero dimensions ──
+         height: auto means getBoundingClientRect().height === 0
+         until the image has fully loaded and the browser has
+         performed layout. Poll with rAF until it resolves.     */
+      function waitForLayout(cb) {
+        var pr = paper.getBoundingClientRect();
+        if (pr.width > 0 && pr.height > 0) { cb(pr); return; }
+        requestAnimationFrame(function () { waitForLayout(cb); });
+      }
+
+      function startSetup() {
+        waitForLayout(function (pr) {
+
+      // Paper content rect in screen coords
+      var pw = {
+        left   : pr.left + PAPER.L * pr.width,
+        top    : pr.top  + PAPER.T * pr.height,
+        width  : (PAPER.R - PAPER.L) * pr.width,
+        height : (PAPER.B - PAPER.T) * pr.height
+      };
+
+      /* ── Set up each block ───────────────────────────── */
+      BLOCKS.forEach(function (b) {
+        var wrap = document.getElementById('s3-wrap-' + b.id);
+        var img  = document.getElementById('s3-img-'  + b.id);
+        var zone = document.getElementById('s3-zone-'  + b.id);
+
+        /* ── Snap zone position on screen ─────────────── */
+        var zLeft = pw.left   + b.zL * pw.width;
+        var zTop  = pw.top    + b.zT * pw.height;
+        var zW    = (b.zR - b.zL) * pw.width;
+        var zH    = (b.zB - b.zT) * pw.height;
+
+        zone.style.left   = zLeft + 'px';
+        zone.style.top    = zTop  + 'px';
+        zone.style.width  = zW    + 'px';
+        zone.style.height = zH    + 'px';
+
+        /* ── Block wrapper = snap zone size ───────────── */
+        // Wrapper clips the PNG to its content region and
+        // is exactly the size of the target snap zone.
+        wrap.style.width  = zW + 'px';
+        wrap.style.height = zH + 'px';
+
+        // Scale the full PNG so its content area fills the wrapper.
+        var imgW = zW / (b.cR - b.cL);
+        var imgH = zH / (b.cB - b.cT);
+        img.style.width  = imgW + 'px';
+        img.style.height = imgH + 'px';
+        // Shift the image so content's top-left aligns with wrapper (0, 0).
+        img.style.left = -(b.cL * imgW) + 'px';
+        img.style.top  = -(b.cT * imgH) + 'px';
+
+        /* ── Snap target ─────────────────────────────── */
+        b.snapLeft = zLeft;
+        b.snapTop  = zTop;
+        b.zoneCX   = zLeft + zW / 2;
+        b.zoneCY   = zTop  + zH  / 2;
+        b.snapped  = false;
+
+        /* ── Initial scatter position ─────────────────── */
+        // Left blocks: anchor at left edge of viewport.
+        // Right blocks: anchor at right edge, pushed in by block width.
+        var margin = window.innerWidth * 0.02;
+        var scatterX = (b.side === 'left')
+          ? margin
+          : window.innerWidth - zW - margin;
+        var scatterY = (b.scatterRow === 'top')
+          ? window.innerHeight * 0.12
+          : window.innerHeight * 0.58;
+
+        wrap.style.left = scatterX + 'px';
+        wrap.style.top  = scatterY + 'px';
+
+        /* ── Wire up drag ─────────────────────────────── */
+        makeDraggable(b, wrap);
+      });
+
+
+      /* ── Drag logic ──────────────────────────────────── */
+      function makeDraggable(b, wrap) {
+        function start(clientX, clientY) {
+          if (b.snapped) return;
+
+          wrap.style.transition = 'none';
+          wrap.style.zIndex     = '10';
+
+          var startL = parseFloat(wrap.style.left) || 0;
+          var startT = parseFloat(wrap.style.top)  || 0;
+          var startX = clientX, startY = clientY;
+
+          function move(cx, cy) {
+            wrap.style.left = (startL + cx - startX) + 'px';
+            wrap.style.top  = (startT + cy - startY) + 'px';
+            // proximity hint
+            var wr  = wrap.getBoundingClientRect();
+            var wcx = wr.left + wr.width  / 2;
+            var wcy = wr.top  + wr.height / 2;
+            if (Math.hypot(wcx - b.zoneCX, wcy - b.zoneCY) < SNAP_RADIUS * 1.8) {
+              wrap.classList.add('s3-near');
+            } else {
+              wrap.classList.remove('s3-near');
+            }
+          }
+
+          function end() {
+            wrap.style.zIndex = '5';
+            wrap.classList.remove('s3-near');
+            trySnap(b, wrap);
+            document.removeEventListener('mousemove', onMM);
+            document.removeEventListener('mouseup',   onMU);
+            document.removeEventListener('touchmove', onTM);
+            document.removeEventListener('touchend',  onTE);
+          }
+
+          function onMM(e) { move(e.clientX, e.clientY); }
+          function onMU()  { end(); }
+          function onTM(e) { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }
+          function onTE()  { end(); }
+
+          document.addEventListener('mousemove', onMM);
+          document.addEventListener('mouseup',   onMU);
+          document.addEventListener('touchmove', onTM, { passive: false });
+          document.addEventListener('touchend',  onTE);
+        }
+
+        wrap.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          start(e.clientX, e.clientY);
+        });
+
+        wrap.addEventListener('touchstart', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          start(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+      }
+
+
+      /* ── Snap / adsorption ───────────────────────────── */
+      function trySnap(b, wrap) {
+        if (b.snapped) return;
+        var wr  = wrap.getBoundingClientRect();
+        var wcx = wr.left + wr.width  / 2;
+        var wcy = wr.top  + wr.height / 2;
+
+        if (Math.hypot(wcx - b.zoneCX, wcy - b.zoneCY) <= SNAP_RADIUS) {
+          // Smooth adsorption to exact zone position
+          wrap.style.transition =
+            'left 0.18s cubic-bezier(0.25,0.46,0.45,0.94),' +
+            'top  0.18s cubic-bezier(0.25,0.46,0.45,0.94)';
+          wrap.style.left = b.snapLeft + 'px';
+          wrap.style.top  = b.snapTop  + 'px';
+
+          b.snapped = true;
+          wrap.classList.add('s3-snapped');
+
+          // Fade zone outline
+          document.getElementById('s3-zone-' + b.id).classList.add('s3-filled');
+
+          // Check if this was the last block
+          if (BLOCKS.every(function (x) { return x.snapped; })) {
+            showResult();
+          }
+        }
+      }
+
+      /* ── Result sequence ─────────────────────────────── */
+      function showResult() {
+        var el = document.getElementById('s3-result');
+        el.src = 'pngassets/thinking.png';
+
+        // Double rAF: paint initial off-screen state, then slide up
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            el.classList.add('s3-result-up');
+          });
+        });
+
+        // After 4 s swap to ok.png (stays in same position)
+        setTimeout(function () {
+          el.src = 'pngassets/ok.png';
+        }, 4000);
+      }
+
+        }); // end waitForLayout callback
+      }   // end startSetup
+
+      // Kick off setup only after paper image is loaded
+      if (paper.complete && paper.naturalWidth > 0) {
+        startSetup();
+      } else {
+        paper.addEventListener('load', startSetup, { once: true });
+      }
+    }
+  </script>
+
+</body>
+</html>
